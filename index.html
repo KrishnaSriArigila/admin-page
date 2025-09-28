@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>JalSuraksha — Full Prototype</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{
+  --primary:#0288d1;   /* deep water blue */
+  --dark:#01579b;      /* navy blue */
+  --bg:#b3e5fc;        /* light water blue */
+  --card:#ffffff; 
+  --muted:#555;
+}
+body{ margin:0; font-family:Inter, Arial, sans-serif; background:var(--bg); color:#222;}
+.center { display:flex; align-items:center; justify-content:center; height:100vh; }
+.login-card{ background:var(--card); padding:28px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.08); width:360px; text-align:center;}
+.login-card h2{ margin:0 0 12px; color:var(--primary);}
+.input{ width:100%; padding:10px 12px; margin:8px 0; border-radius:6px; border:1px solid #ddd; box-sizing:border-box;}
+.btn{ background:var(--primary); color:white; padding:10px 14px; border:none; border-radius:6px; cursor:pointer; font-weight:600; width:100%;}
+.small{ font-size:13px; color:var(--muted); margin-top:8px;}
+header{ background:var(--primary); color:white; padding:12px 18px; display:flex; align-items:center; justify-content:space-between;}
+header .brand{ font-weight:700; font-size:18px;}
+header .userbar{ display:flex; gap:12px; align-items:center;}
+header button{ background:transparent; color:white; border:1px solid rgba(255,255,255,0.18); padding:8px 10px; border-radius:6px; cursor:pointer;}
+nav{ background:var(--dark); padding:10px; display:flex; gap:8px; justify-content:center;}
+nav button{ background:none; border:none; color:white; padding:10px 14px; cursor:pointer; font-weight:600; border-radius:6px;}
+nav button.active{ background:rgba(255,255,255,0.1); }
+main{ padding:20px; max-width:1200px; margin:18px auto; }
+.stats{ display:flex; gap:14px; margin-bottom:18px;}
+.card{ background:var(--card); padding:16px; border-radius:10px; flex:1; box-shadow:0 2px 8px rgba(0,0,0,0.06); text-align:center;}
+table{ width:100%; border-collapse:collapse; background:var(--card); border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.06);}
+th, td{ padding:10px 12px; text-align:center; border-bottom:1px solid #eee;}
+th{ background:var(--primary); color:white; font-weight:700; }
+.status-green{ color:green; font-weight:700; } 
+.status-yellow{ color:orange; font-weight:700; } 
+.status-red{ color:red; font-weight:700; }
+.hidden{ display:none; } 
+footer{ text-align:center; color:var(--muted); margin:18px 0; font-size:13px; }
+#heatmapDashboard{ height:240px; border-radius:6px; background:#fafafa; }
+@media (max-width:860px){ .stats{ flex-direction:column; } .login-card{ width:92%; } }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="center">
+  <div class="login-card" role="dialog" aria-label="Admin login">
+    <h2>JalSuraksha</h2>
+    <p style="margin-bottom:8px;color:var(--muted)">Sign in to access the dashboard</p>
+    <input id="username" class="input" placeholder="Email or mobile" />
+    <input id="password" class="input" placeholder="Password" type="password"/>
+    <button class="btn" onclick="doLogin()">Login</button>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="appShell" class="hidden">
+  <header>
+    <div class="brand">JalSuraksha — Water Monitoring (Admin)</div>
+    <div class="userbar">
+      <div id="welcomeText" style="font-size:14px;">Welcome, Admin</div>
+      <button onclick="doLogout()">Sign out</button>
+    </div>
+  </header>
+
+  <nav>
+    <button id="nav-dashboard" class="active" onclick="showPage('dashboard')">Dashboard</button>
+    <button id="nav-alerts" onclick="showPage('alerts')">Alerts</button>
+    <button id="nav-tasks" onclick="showPage('tasks')">Tasks</button>
+    <button id="nav-reports" onclick="showPage('reports')">Reports</button>
+    <button id="nav-users" onclick="showPage('users')">Users</button>
+  </nav>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section id="dashboard">
+      <div style="display:flex; gap:14px; align-items:flex-start;">
+        <!-- Village Table & Water Levels -->
+        <div style="flex:1;">
+          <table aria-label="Village status table">
+            <thead><tr><th>Village</th><th>Pump Hours</th><th>Valve</th><th>Leaks</th><th>Water Quality</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>Ramapur</td><td>4 hrs</td><td>OK</td><td>0</td><td>Safe</td><td class="status-green">🟢 OK</td></tr>
+              <tr><td>Kakinada</td><td>2 hrs</td><td>Stuck</td><td>1</td><td>Safe</td><td class="status-yellow">🟡 Warning</td></tr>
+              <tr><td>Gollapudi</td><td>0 hrs</td><td>Closed</td><td>2</td><td>Unsafe</td><td class="status-red">🔴 Critical</td></tr>
+            </tbody>
+          </table>
+
+          <!-- Water Levels Table -->
+          <div style="background:var(--card); padding:12px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.06); margin-top:14px;">
+            <div style="font-weight:700; margin-bottom:8px;">Water Levels by Village</div>
+            <table aria-label="Village water levels">
+              <thead><tr><th>Village</th><th>Water Level (%)</th></tr></thead>
+              <tbody>
+                <tr><td>Ramapur</td><td>80%</td></tr>
+                <tr><td>Kakinada</td><td>65%</td></tr>
+                <tr><td>Gollapudi</td><td>90%</td></tr>
+                <tr><td>Rajavolu</td><td>70%</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Water Levels Chart -->
+          <div style="background:var(--card); padding:12px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.06); margin-top:14px;">
+            <div style="font-weight:700; margin-bottom:8px;">Water Levels Chart</div>
+            <canvas id="waterChartMini" height="100"></canvas>
+          </div>
+        </div>
+        <!-- Heatmap -->
+        <div style="width:360px;">
+          <div style="background:var(--card); padding:12px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <div style="font-weight:700; margin-bottom:8px;">Water Level Heatmap</div>
+            <div id="heatmapDashboard"></div>
+            <div style="font-size:12px;color:var(--muted); margin-top:8px;">Tip: toggle layers for Pump failures / Leak density / Water quality</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ALERTS -->
+    <section id="alerts" class="hidden">
+      <h3>Alerts</h3>
+      <div style="background:#fff3e0;padding:10px;border-radius:8px;margin-bottom:8px;">Pump in Gollapudi not running since 2 days</div>
+      <div style="background:#fff3e0;padding:10px;border-radius:8px;margin-bottom:8px;">Valve stuck in Kakinada — 3rd report this week</div>
+      <div style="background:#fff3e0;padding:10px;border-radius:8px;margin-bottom:8px;">Unsafe chlorine level detected in Rajavolu</div>
+    </section>
+
+    <!-- TASKS -->
+    <section id="tasks" class="hidden">
+      <h3>Maintenance Tasks</h3>
+      <div style="background:#e3f2fd;padding:10px;border-radius:8px;margin-bottom:8px;">Fix Pump Motor — Gollapudi — Assigned to Ramesh — <strong>Pending</strong></div>
+      <div style="background:#e3f2fd;padding:10px;border-radius:8px;margin-bottom:8px;">Replace Valve — Kakinada — Assigned to Suresh — <strong>In Progress</strong></div>
+      <div style="background:#e3f2fd;padding:10px;border-radius:8px;margin-bottom:8px;">Check Leak — Ramapur — Assigned to Technician — <strong>Completed</strong></div>
+    </section>
+
+    <!-- REPORTS -->
+    <section id="reports" class="hidden">
+      <h3>Reports</h3>
+      <div style="background:#ede7f6;padding:10px;border-radius:8px;margin-bottom:8px;">Monthly Pump Efficiency — <button onclick="alert('Download demo report')">Download PDF</button></div>
+      <div style="background:#ede7f6;padding:10px;border-radius:8px;margin-bottom:8px;">Leak Frequency — <button onclick="alert('Download demo excel')">Download Excel</button></div>
+    </section>
+
+    <!-- USERS -->
+    <section id="users" class="hidden">
+      <h3>User Management</h3>
+      <div style="background:#f1f8e9;padding:10px;border-radius:8px;margin-bottom:8px;">Ramesh — Pump Operator — Active</div>
+      <div style="background:#f1f8e9;padding:10px;border-radius:8px;margin-bottom:8px;">Suresh — Technician — Active</div>
+      <div style="background:#f1f8e9;padding:10px;border-radius:8px;margin-bottom:8px;">Anitha — VWSC — Active</div>
+    </section>
+  </main>
+
+  <footer>Prototype — JalSuraksha (Admin Side Dashboard with Heatmap)</footer>
+</div>
+
+<script>
+// LOGIN
+function doLogin(){
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value.trim();
+  if(!u || !p){ alert('Enter username and password (any for prototype)'); return; }
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  document.getElementById('welcomeText').innerText = 'Welcome, ' + (u.split('@')[0] || u);
+  showPage('dashboard');
+}
+
+// LOGOUT
+function doLogout(){
+  document.getElementById('username').value='';
+  document.getElementById('password').value='';
+  document.getElementById('appShell').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+
+// NAVIGATION
+function showPage(id){
+  document.querySelectorAll('main section').forEach(s=> s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+  document.querySelectorAll('nav button').forEach(b=> b.classList.remove('active'));
+  document.getElementById('nav-' + id).classList.add('active');
+
+  if(id === 'dashboard') initHeatmap();
+}
+
+// HEATMAP
+function initHeatmap(){
+  if(window.heatmapInit) return;
+  window.heatmapInit = true;
+
+  const map = L.map('heatmapDashboard').setView([17.385044, 78.486671], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const villages = [
+    {name:"Ramapur", lat:17.5, lng:78.4, level:80, alert:false},
+    {name:"Kakinada", lat:17.2, lng:78.6, level:65, alert:false},
+    {name:"Gollapudi", lat:16.9, lng:79.0, level:90, alert:true},
+    {name:"Rajavolu", lat:16.5, lng:80.0, level:70, alert:false}
+  ];
+
+  villages.forEach(v=>{
+    const color = v.alert ? 'red' : 'blue';
+    L.circleMarker([v.lat,v.lng],{radius:10,color:color,fillColor:color,fillOpacity:0.7})
+      .addTo(map)
+      .bindPopup(`${v.name} - Water Level: ${v.level}% ${v.alert?'(Alert!)':''}`);
+  });
+}
+
+// WATER LEVELS CHART
+const ctx = document.getElementById('waterChartMini');
+if(ctx){
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Ramapur','Kakinada','Gollapudi','Rajavolu'],
+      datasets: [{
+        label: 'Water Level (%)',
+        data: [80,65,90,70],
+        backgroundColor: ['#0288d1','#26c6da','#4fc3f7','#81d4fa']
+      }]
+    },
+    options: { responsive:true, plugins:{legend:{display:false}} }
+  });
+}
+</script>
+
+</body>
+</html>
+
+
